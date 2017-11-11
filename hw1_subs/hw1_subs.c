@@ -45,7 +45,7 @@ int main(int argc, const char* argv[]){
 		return 1;
 	}
 	//Get file descriptor
-	int fd = open(fullPath, 'r');
+	int fd = open(fullPath, O_RDONLY);
 	if (fd < 0){
 		return 1;
 	}
@@ -69,7 +69,7 @@ char* createPath( const char* dir, const char* file){
 }
 
 int replaceWords(int fd, const char* find, const char* replace){
-	char fileBuff[FILE_BUFF];
+	char fileBuff[FILE_BUFF] = {0};
 	char* nextWord;
 	int start;
 	int findLen = strlen(find);
@@ -103,7 +103,8 @@ int replaceWords(int fd, const char* find, const char* replace){
 			nextWord = strstr(&(fileBuff[start]), find);
 		}
 		//print the rest of the buffer until
-		temp = fwrite(fileBuff+start,  sizeof(char), MAX(start, (FILE_BUFF-WORD_MAX)) - start, stdout);
+		int left_to_print = MAX((MAX(start, (FILE_BUFF-WORD_MAX)) - start), rfd-start);
+		temp = fwrite(fileBuff+start,  sizeof(char), left_to_print, stdout);
 		if (temp <0){
 			printf("Error! couldn't write to stdout");
 			return 1;
@@ -127,6 +128,6 @@ int replaceWords(int fd, const char* find, const char* replace){
 			return 1;
 		}
 	}
-	printf("\n");
+	//printf("\n");
 	return 0;
 }
