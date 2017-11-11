@@ -28,7 +28,7 @@ char* createPath( const char* dir, const char* file);
 int main(int argc, const char* argv[]){
 	char* hw1dir;
 	char* hw1tf;
-	char* fullPath;
+	char* fullPath = NULL;
 	if(argc < 3){
 		return 1;
 	}
@@ -64,10 +64,10 @@ int main(int argc, const char* argv[]){
  * Creates a path to the file to be read according to environment variables.s
  */
 char* createPath( const char* dir, const char* file){
-	if(dir == NULL || file == NULL){
-		return NULL;
-	}
 	char * filePath = (char*)malloc(sizeof(char)*(strlen(dir)+strlen(file)+1));
+	if(dir == NULL || file == NULL || filePath == NULL){
+			return NULL;
+		}
 	strcpy(filePath, dir);
 	strcat(filePath, "/");
 	strcat(filePath, file);
