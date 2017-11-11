@@ -41,7 +41,7 @@ int main(int argc, const char* argv[]){
 
 	//Create full path:
 	createPath(hw1dir,hw1tf, fullPath);
-	if (!(fullPath)){
+	if (NULL == fullPath){
 		free(fullPath);
 		return 1;
 	}
@@ -73,7 +73,7 @@ void createPath( const char* dir, const char* file, char* fullPath){
 		return;
 	}
 	strcpy(fullPath, dir);
-	strcat(fullPath, "/");
+	strcat(fullPath, "/\0");
 	strcat(fullPath, file);
 }
 
