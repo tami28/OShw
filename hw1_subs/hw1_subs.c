@@ -26,8 +26,8 @@ int replaceWords(int fd, const char* find, const char* replace);
 char* createPath( const char* dir, const char* file);
 
 int main(int argc, const char* argv[]){
-	char* hw1dir;
-	char* hw1tf;
+	char* hw1dir = NULL;
+	char* hw1tf = NULL;
 	char* fullPath = NULL;
 	if(argc < 3){
 		return 1;
@@ -40,20 +40,18 @@ int main(int argc, const char* argv[]){
 	}
 
 	//Create full path:
-	fullPath =createPath(hw1dir,hw1tf);
+	fullPath = createPath(hw1dir,hw1tf);
 	if (NULL == fullPath){
-		free(fullPath);
 		return 1;
 	}
 	//Get file descriptor
 	int fd = open(fullPath, O_RDONLY);
 	if (fd < 0){
 		free(fullPath);
-		close(fd);
 		return 1;
 	}
 	//Replace and print words:
-	int ret= replaceWords(fd, argv[1], argv[2]);
+	int ret = replaceWords(fd, argv[1], argv[2]);
 	//Clean after us:
 	free(fullPath);
 	close(fd);
@@ -65,7 +63,7 @@ int main(int argc, const char* argv[]){
  */
 char* createPath( const char* dir, const char* file){
 
-	char* fullPath;
+	char* fullPath = NULL;
 	if(dir == NULL || file == NULL ){
 		return NULL;
 	}
@@ -85,11 +83,11 @@ int replaceWords(int fd, const char* find, const char* replace){
 		return 1;
 	}
 	char fileBuff[FILE_BUFF] = {0};
-	char* nextWord;
-	int start;
+	char* nextWord = NULL;
+	int start =0;
 	int findLen = strlen(find);
 	ssize_t rfd = read(fd, fileBuff, FILE_BUFF );
-	int temp;
+	int temp = 0;
 	if (rfd < 0){
 		printf("Error! : couldn't read from file");
 		return 1;
