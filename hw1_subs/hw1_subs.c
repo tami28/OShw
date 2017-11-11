@@ -42,11 +42,14 @@ int main(int argc, const char* argv[]){
 	//Create full path:
 	fullPath = createPath(hw1dir,hw1tf);
 	if (!(fullPath)){
+		free(fullPath);
 		return 1;
 	}
 	//Get file descriptor
 	int fd = open(fullPath, O_RDONLY);
 	if (fd < 0){
+		free(fullPath);
+		close(fd);
 		return 1;
 	}
 	//Replace and print words:
@@ -131,3 +134,6 @@ int replaceWords(int fd, const char* find, const char* replace){
 	//printf("\n");
 	return 0;
 }
+
+
+//gcc -O3 -Wall -c -fmessage-length=0 -MMD -MP -MF"hw1_subs.d" -MT"hw1_subs.o" -o "hw1_subs.o" "../hw1_subs.c"
