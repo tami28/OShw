@@ -116,26 +116,26 @@ int replaceWords(int fd, const char* find, const char* replace){
 			nextWord = strstr(&(fileBuff[start]), find);
 		}
 		//print the rest of the buffer until
-		int left_to_print = MAX((MAX(start, (FILE_BUFF-WORD_MAX)) - start), rfd-start);
+		int left_to_print = MAX((MAX(start, (rfd-WORD_MAX)) - start), rfd-start);
 		temp = fwrite(fileBuff+start,  sizeof(char), left_to_print, stdout);
 		if (temp <0){
 			printf("Error! couldn't write to stdout");
 			return 1;
 		}
 		//printf("%.*s", MAX(start, (FILE_BUFF-WORD_MAX)) - start, fileBuff+start);
-		start = MAX(start, (FILE_BUFF-WORD_MAX));
+		start = MAX(start, (rfd-WORD_MAX));
 
 		//Need to read more
-		if (rfd > FILE_BUFF - WORD_MAX){ // if read a full buffer..
+//		if (rfd > FILE_BUFF - WORD_MAX){ // if read a full buffer..
 
 			for(int i=0; i<FILE_BUFF - start; i++){
 				fileBuff[i] = fileBuff[start+i];
 			}
-			rfd = read(fd, &(fileBuff[FILE_BUFF - start]), start);
-		}
-		else{
-			rfd = 0;
-		}
+			rfd = read(fd, &(fileBuff[rfd - start]), start);
+	//	}
+		//else{
+			//rfd = 0;
+		//}
 		if (rfd < 0){
 			printf("Error! : couldn't continue reading from file");
 			return 1;
@@ -147,3 +147,5 @@ int replaceWords(int fd, const char* find, const char* replace){
 
 
 //gcc -O3 -Wall -c -fmessage-length=0 -MMD -MP -MF"hw1_subs.d" -MT"hw1_subs.o" -o "hw1_subs.o" "../hw1_subs.c"
+
+/// aaa  babaa a
