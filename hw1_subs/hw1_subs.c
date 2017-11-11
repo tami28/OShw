@@ -23,7 +23,7 @@
 #define MAX(first,second) (((first)>(second))?(first) : (second))
 
 int replaceWords(int fd, const char* find, const char* replace);
-void createPath( const char* dir, const char* file, char* fullPath);
+char* createPath( const char* dir, const char* file);
 
 int main(int argc, const char* argv[]){
 	char* hw1dir;
@@ -40,7 +40,7 @@ int main(int argc, const char* argv[]){
 	}
 
 	//Create full path:
-	createPath(hw1dir,hw1tf, fullPath);
+	fullPath =createPath(hw1dir,hw1tf);
 	if (NULL == fullPath){
 		free(fullPath);
 		return 1;
@@ -63,18 +63,21 @@ int main(int argc, const char* argv[]){
 /*
  * Creates a path to the file to be read according to environment variables.s
  */
-void createPath( const char* dir, const char* file, char* fullPath){
+char* createPath( const char* dir, const char* file){
+
+	char* fullPath;
 	if(dir == NULL || file == NULL ){
-		return;
+		return NULL;
 	}
 
 	fullPath = (char*)malloc(sizeof(char)*(strlen(dir)+strlen(file)+1));
 	if(fullPath == NULL){
-		return;
+		return NULL;
 	}
 	strcpy(fullPath, dir);
 	strcat(fullPath, "/\0");
 	strcat(fullPath, file);
+	return NULL;
 }
 
 int replaceWords(int fd, const char* find, const char* replace){
