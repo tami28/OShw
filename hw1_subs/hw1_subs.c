@@ -81,6 +81,9 @@ char* createPath( const char* dir, const char* file){
 }
 
 int replaceWords(int fd, const char* find, const char* replace){
+	if(find == NULL || replace == NULL){
+		return 1;
+	}
 	char fileBuff[FILE_BUFF] = {0};
 	char* nextWord;
 	int start;
