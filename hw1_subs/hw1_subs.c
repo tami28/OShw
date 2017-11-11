@@ -68,7 +68,7 @@ char* createPath( const char* dir, const char* file){
 		return NULL;
 	}
 
-	fullPath = (char*)malloc(sizeof(char)*(strlen(dir)+strlen(file)+1));
+	fullPath = (char*)malloc(sizeof(char)*(strlen(dir)+strlen(file)+3));
 	if(fullPath == NULL){
 		return NULL;
 	}
