@@ -64,6 +64,9 @@ int main(int argc, const char* argv[]){
  * Creates a path to the file to be read according to environment variables.s
  */
 char* createPath( const char* dir, const char* file){
+	if(dir == NULL || file == NULL){
+		return NULL;
+	}
 	char * filePath = (char*)malloc(sizeof(char)*(strlen(dir)+strlen(file)+1));
 	strcpy(filePath, dir);
 	strcat(filePath, "/");
