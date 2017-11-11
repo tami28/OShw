@@ -77,7 +77,7 @@ char* createPath( const char* dir, const char* file){
 	strcpy(fullPath, dir);
 	strcat(fullPath, "/\0");
 	strcat(fullPath, file);
-	return NULL;
+	return fullPath;
 }
 
 int replaceWords(int fd, const char* find, const char* replace){
