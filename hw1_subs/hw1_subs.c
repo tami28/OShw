@@ -128,10 +128,10 @@ int replaceWords(int fd, const char* find, const char* replace){
 		//Need to read more
 //		if (rfd > FILE_BUFF - WORD_MAX){ // if read a full buffer..
 
-			for(int i=0; i<FILE_BUFF - start; i++){
+			for(int i=0; i<rfd - start; i++){
 				fileBuff[i] = fileBuff[start+i];
 			}
-			rfd = read(fd, &(fileBuff[rfd - start]), start);
+			rfd = read(fd, &(fileBuff[FILE_BUFF - start]), start);
 	//	}
 		//else{
 			//rfd = 0;
