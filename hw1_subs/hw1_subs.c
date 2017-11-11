@@ -23,7 +23,7 @@
 #define MAX(first,second) (((first)>(second))?(first) : (second))
 
 int replaceWords(int fd, const char* find, const char* replace);
-char* createPath( const char* dir, const char* file);
+void createPath( const char* dir, const char* file, char* fullPath);
 
 int main(int argc, const char* argv[]){
 	char* hw1dir;
@@ -40,7 +40,7 @@ int main(int argc, const char* argv[]){
 	}
 
 	//Create full path:
-	fullPath = createPath(hw1dir,hw1tf);
+	createPath(hw1dir,hw1tf, fullPath);
 	if (!(fullPath)){
 		free(fullPath);
 		return 1;
@@ -63,15 +63,18 @@ int main(int argc, const char* argv[]){
 /*
  * Creates a path to the file to be read according to environment variables.s
  */
-char* createPath( const char* dir, const char* file){
-	char * filePath = (char*)malloc(sizeof(char)*(strlen(dir)+strlen(file)+1));
-	if(dir == NULL || file == NULL || filePath == NULL){
-			return NULL;
-		}
-	strcpy(filePath, dir);
-	strcat(filePath, "/");
-	strcat(filePath, file);
-	return filePath;
+void createPath( const char* dir, const char* file, char* fullPath){
+	if(dir == NULL || file == NULL ){
+		return;
+	}
+
+	fullPath = (char*)malloc(sizeof(char)*(strlen(dir)+strlen(file)+1));
+	if(fullPath == NULL){
+		return;
+	}
+	strcpy(fullPath, dir);
+	strcat(fullPath, "/");
+	strcat(fullPath, file);
 }
 
 int replaceWords(int fd, const char* find, const char* replace){
@@ -80,7 +83,7 @@ int replaceWords(int fd, const char* find, const char* replace){
 	int start;
 	int findLen = strlen(find);
 	ssize_t rfd = read(fd, fileBuff, FILE_BUFF );
-	size_t temp;
+	int temp;
 	if (rfd < 0){
 		printf("Error! : couldn't read from file");
 		return 1;
