@@ -180,7 +180,7 @@ int replaceWords2(int fd, const char* find, const char* replace){
 
 	//read all the file:
 	while (total < fileStat.st_size){
-		rfd = read(fd, buffer, fileStat.st_size );
+		rfd = read(fd, &(buffer[total]), fileStat.st_size );
 		total+= rfd;
 		if(rfd<0){
 			free(buffer);
@@ -191,6 +191,9 @@ int replaceWords2(int fd, const char* find, const char* replace){
 			printf("not the same size as expected!");
 			return 1;
 		}
+	}
+	if(total > fileStat.st_size){
+		return 2;
 	}
 	//for strstr so no error:
 	buffer[total + 1] = '\0';
