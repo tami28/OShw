@@ -18,11 +18,12 @@
 
 #define EV_DIR "HW1DIR"
 #define EV_FILE "HW1TF"
-#define WORD_MAX 256
-#define FILE_BUFF 4096
+#define WORD_MAX 6 //256
+#define FILE_BUFF 12 //4096
 #define MAX(first,second) (((first)>(second))?(first) : (second))
 
 int replaceWords(int fd, const char* find, const char* replace);
+int replaceWords2(int fd, const char* find, const char* replace);
 char* createPath( const char* dir, const char* file);
 
 int main(int argc, const char* argv[]){
@@ -56,7 +57,7 @@ int main(int argc, const char* argv[]){
 		return 1;
 	}
 	//Replace and print words:
-	int ret = replaceWords(fd, argv[1], argv[2]);
+	int ret = replaceWords2(fd, argv[1], argv[2]);
 	if (ret != 0){
 		printf("%s", strerror (errno));
 	}
@@ -93,7 +94,7 @@ int replaceWords(int fd, const char* find, const char* replace){
 		return 1;
 	}
 	//initiialize vars:
-	char fileBuff[FILE_BUFF] = {0};
+	char fileBuff[FILE_BUFF+1] = {0}; //last one for \0 for strstr
 	char* nextWord = NULL;
 	int start =0;
 	int temp = 0;
@@ -104,9 +105,14 @@ int replaceWords(int fd, const char* find, const char* replace){
 		printf("Error! : couldn't read from file");
 		return 1;
 	}
+	fileBuff[rfd] = '\0';
 	//Found part of the loop in stack overflow, about how to read files in chunks:
 	while(rfd > 0){
+		//TODO
+		printf("\nbuffer:%s\nend buffer\n", fileBuff);
+		rfd+= start;
 		start =0;
+		fileBuff[rfd+1] = '\0';//TODO
 		//For the current buffer, want to find all instance of the word to replace, this is the inner while:
 		nextWord = strstr(&(fileBuff[start]), find);
 		while(nextWord != NULL){
@@ -127,6 +133,7 @@ int replaceWords(int fd, const char* find, const char* replace){
 		}
 		//print the rest of the buffer until
 		int left_to_print = MAX((MAX(start, (rfd-WORD_MAX)) - start), rfd-start);
+		printf("\n printing left buffer: %d\n", left_to_print);
 		temp = fwrite(fileBuff+start,  sizeof(char), left_to_print, stdout);
 		if (temp <0){
 			return 1;
@@ -139,6 +146,12 @@ int replaceWords(int fd, const char* find, const char* replace){
 			}
 			rfd = read(fd, &(fileBuff[FILE_BUFF - start]), start);
 	}
+	//need?
+	//temp = fwrite(fileBuff,  sizeof(char), start, stdout);
+	if (temp <0){
+		return 1;
+	}
+
 	if(rfd <0){
 		return 1;
 	}
@@ -146,3 +159,60 @@ int replaceWords(int fd, const char* find, const char* replace){
 	return 0;
 }
 
+int replaceWords2(int fd, const char* find, const char* replace){
+	//sanity check for cars:
+	if(find == NULL || replace == NULL){
+		return 1;
+	}
+
+	struct stat fileStat;
+	if(fstat(fd,&fileStat) < 0){
+		return 1;
+	}
+	char* buffer = (char*)malloc(sizeof(char)*fileStat.st_size +1);
+	if (buffer == NULL){
+		return 1;
+	}
+	int total = 0;
+	ssize_t rfd = 0;
+
+	//read all the file:
+	while (total < fileStat.st_size){
+		total+= rfd;
+		rfd = read(fd, buffer, fileStat.st_size );
+		if(rfd<0){
+			free(buffer);
+			return 1;
+		}
+	}
+	//for strstr so no error:
+	buffer[total + 1] = '\0';
+
+	//find print & replace everything:
+
+	ssize_t temp = 0;
+	int start = 0;
+	int findLen = strlen(find);
+	char*	nextWord = strstr(&(buffer[start]), find);
+	while(nextWord != NULL){
+		//print the chars up until the word to replace:
+		temp = fwrite(buffer+start, sizeof(char),nextWord-(buffer+start), stdout );
+		if (temp <0){
+			return 1;
+		}
+		//print the replaced word:
+		temp = fwrite(replace, sizeof(char), strlen(replace), stdout);
+		if (temp <0){
+			return 1;
+		}
+		int length = nextWord-buffer - start; //how much printed till now
+		//advance the starting point and look for next occurrence:
+		start = start+ findLen + length; //TODO: +1??
+		nextWord = strstr(&(buffer[start]), find);
+	}
+	temp = fwrite(buffer+start, sizeof(char), fileStat.st_size - start, stdout);
+	if (temp <0){
+		return 1;
+	}
+	return 0;
+}
