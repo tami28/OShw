@@ -85,9 +85,9 @@ int replaceWords(int fd, const char* find, const char* replace){
 	char fileBuff[FILE_BUFF] = {0};
 	char* nextWord = NULL;
 	int start =0;
+	int temp = 0;
 	int findLen = strlen(find);
 	ssize_t rfd = read(fd, fileBuff, FILE_BUFF );
-	int temp = 0;
 	if (rfd < 0){
 		printf("Error! : couldn't read from file");
 		return 1;
@@ -126,26 +126,18 @@ int replaceWords(int fd, const char* find, const char* replace){
 		start = MAX(start, (rfd-WORD_MAX));
 
 		//Need to read more
-//		if (rfd > FILE_BUFF - WORD_MAX){ // if read a full buffer..
-
 			for(int i=0; i<rfd - start; i++){
 				fileBuff[i] = fileBuff[start+i];
 			}
 			rfd = read(fd, &(fileBuff[FILE_BUFF - start]), start);
-	//	}
-		//else{
-			//rfd = 0;
-		//}
 		if (rfd < 0){
 			printf("Error! : couldn't continue reading from file");
 			return 1;
 		}
 	}
-	//printf("\n");
+	if(rfd <0){
+		return 1;
+	}
 	return 0;
 }
 
-
-//gcc -O3 -Wall -c -fmessage-length=0 -MMD -MP -MF"hw1_subs.d" -MT"hw1_subs.o" -o "hw1_subs.o" "../hw1_subs.c"
-
-/// aaa  babaa a
