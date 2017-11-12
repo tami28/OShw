@@ -30,28 +30,35 @@ int main(int argc, const char* argv[]){
 	char* hw1tf = NULL;
 	char* fullPath = NULL;
 	if(argc < 3){
+		printf("Not enough arguments");
 		return 1;
 	}
 	//Get environment variables:
 	hw1dir = getenv(EV_DIR);
 	hw1tf = getenv(EV_FILE);
 	if (!(hw1dir && hw1tf)){
+		printf("enivronment variables are not set");
 		return 1;
 	}
 
 	//Create full path:
 	fullPath = createPath(hw1dir,hw1tf);
 	if (NULL == fullPath){
+		printf("%s", strerror (errno));
 		return 1;
 	}
 	//Get file descriptor
 	int fd = open(fullPath, O_RDONLY);
 	if (fd < 0){
+		printf("%s", strerror (errno));
 		free(fullPath);
 		return 1;
 	}
 	//Replace and print words:
 	int ret = replaceWords(fd, argv[1], argv[2]);
+	if (ret != 0){
+		printf("%s", strerror (errno));
+	}
 	//Clean after us:
 	free(fullPath);
 	close(fd);
