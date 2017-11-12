@@ -198,11 +198,13 @@ int replaceWords2(int fd, const char* find, const char* replace){
 		//print the chars up until the word to replace:
 		temp = fwrite(buffer+start, sizeof(char),nextWord-(buffer+start), stdout );
 		if (temp <0){
+			free(buffer);
 			return 1;
 		}
 		//print the replaced word:
 		temp = fwrite(replace, sizeof(char), strlen(replace), stdout);
 		if (temp <0){
+			free(buffer);
 			return 1;
 		}
 		int length = nextWord-buffer - start; //how much printed till now
@@ -212,7 +214,9 @@ int replaceWords2(int fd, const char* find, const char* replace){
 	}
 	temp = fwrite(buffer+start, sizeof(char), fileStat.st_size - start, stdout);
 	if (temp <0){
+		free(buffer);
 		return 1;
 	}
+	free(buffer);
 	return 0;
 }
