@@ -169,7 +169,7 @@ int replaceWords2(int fd, const char* find, const char* replace){
 	if(fstat(fd,&fileStat) < 0){
 		return 1;
 	}
-	char* buffer = (char*)malloc(sizeof(char)*fileStat.st_size +1);
+	char * buffer = (char*) calloc(fileStat.st_size +1, sizeof(char));
 	if (buffer == NULL){
 		return 1;
 	}
@@ -184,6 +184,11 @@ int replaceWords2(int fd, const char* find, const char* replace){
 			free(buffer);
 			return 1;
 		}
+		if(rfd == 0){
+			free(buffer);
+			printf("not the same size as expected!");
+			return 1;
+		}
 	}
 	//for strstr so no error:
 	buffer[total + 1] = '\0';
@@ -196,16 +201,20 @@ int replaceWords2(int fd, const char* find, const char* replace){
 	char*	nextWord = strstr(&(buffer[start]), find);
 	while(nextWord != NULL){
 		//print the chars up until the word to replace:
-		temp = fwrite(buffer+start, sizeof(char),nextWord-(buffer+start), stdout );
-		if (temp <0){
-			free(buffer);
-			return 1;
+		if (nextWord-(buffer+start) > 0){
+			temp = fwrite(buffer+start, sizeof(char),nextWord-(buffer+start), stdout );
+			if (temp <0){
+				free(buffer);
+				return 1;
+			}
 		}
 		//print the replaced word:
-		temp = fwrite(replace, sizeof(char), strlen(replace), stdout);
-		if (temp <0){
-			free(buffer);
-			return 1;
+		if (strlen(replace) > 0){
+			temp = fwrite(replace, sizeof(char), strlen(replace), stdout);
+			if (temp <0){
+				free(buffer);
+				return 1;
+			}
 		}
 		int length = nextWord-buffer - start; //how much printed till now
 		//advance the starting point and look for next occurrence:
