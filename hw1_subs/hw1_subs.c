@@ -104,12 +104,8 @@ int replaceWords(int fd, const char* find, const char* replace){
 		printf("Error! : couldn't read from file");
 		return 1;
 	}
-	//this means the file is empty, isn't needed, only for trying to pass symbolic execution:
-	if (rfd == 0){
-		return 0;
-	}
 	//Found part of the loop in stack overflow, about how to read files in chunks:
-	while(rfd >0){
+	while(rfd > 0){
 		start =0;
 		//For the current buffer, want to find all instance of the word to replace, this is the inner while:
 		nextWord = strstr(&(fileBuff[start]), find);
@@ -148,6 +144,7 @@ int replaceWords(int fd, const char* find, const char* replace){
 	if(rfd <0){
 		return 1;
 	}
+
 	return 0;
 }
 
