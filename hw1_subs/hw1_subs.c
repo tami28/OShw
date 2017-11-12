@@ -196,7 +196,8 @@ int replaceWords2(int fd, const char* find, const char* replace){
 		return 2;
 	}
 	//for strstr so no error:
-	buffer[total + 1] = '\0';
+
+	buffer[total] = '\0';
 
 	//find print & replace everything:
 
