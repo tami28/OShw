@@ -29,6 +29,7 @@ int main(int argc, const char* argv[]){
 	char* hw1dir = NULL;
 	char* hw1tf = NULL;
 	char* fullPath = NULL;
+	//make ssure enough args:
 	if(argc < 3){
 		printf("Not enough arguments");
 		return 1;
@@ -69,7 +70,7 @@ int main(int argc, const char* argv[]){
  * Creates a path to the file to be read according to environment variables.s
  */
 char* createPath( const char* dir, const char* file){
-
+	//sanity checks for vars:
 	char* fullPath = NULL;
 	if(dir == NULL || file == NULL ){
 		return NULL;
@@ -79,6 +80,7 @@ char* createPath( const char* dir, const char* file){
 	if(fullPath == NULL){
 		return NULL;
 	}
+	//create the path by copying and concatenating:
 	strcpy(fullPath, dir);
 	strcat(fullPath, "/\0");
 	strcat(fullPath, file);
@@ -86,19 +88,23 @@ char* createPath( const char* dir, const char* file){
 }
 
 int replaceWords(int fd, const char* find, const char* replace){
+	//sanity check for cars:
 	if(find == NULL || replace == NULL){
 		return 1;
 	}
+	//initiialize vars:
 	char fileBuff[FILE_BUFF] = {0};
 	char* nextWord = NULL;
 	int start =0;
 	int temp = 0;
 	int findLen = strlen(find);
 	ssize_t rfd = read(fd, fileBuff, FILE_BUFF );
+	//check if read:
 	if (rfd < 0){
 		printf("Error! : couldn't read from file");
 		return 1;
 	}
+	//this means the file is empty, isn't needed, only for trying to pass symbolic execution:
 	if (rfd == 0){
 		return 0;
 	}
@@ -129,10 +135,8 @@ int replaceWords(int fd, const char* find, const char* replace){
 		int left_to_print = MAX((MAX(start, (rfd-WORD_MAX)) - start), rfd-start);
 		temp = fwrite(fileBuff+start,  sizeof(char), left_to_print, stdout);
 		if (temp <0){
-			printf("Error! couldn't write to stdout");
 			return 1;
 		}
-		//printf("%.*s", MAX(start, (FILE_BUFF-WORD_MAX)) - start, fileBuff+start);
 		start = MAX(start, (rfd-WORD_MAX));
 
 		//Need to read more
@@ -140,10 +144,6 @@ int replaceWords(int fd, const char* find, const char* replace){
 				fileBuff[i] = fileBuff[start+i];
 			}
 			rfd = read(fd, &(fileBuff[FILE_BUFF - start]), start);
-		if (rfd < 0){
-			printf("Error! : couldn't continue reading from file");
-			return 1;
-		}
 	}
 	if(rfd <0){
 		return 1;
