@@ -92,6 +92,9 @@ int replaceWords(int fd, const char* find, const char* replace){
 		printf("Error! : couldn't read from file");
 		return 1;
 	}
+	if (rfd == 0){
+		return 0;
+	}
 	//Found part of the loop in stack overflow, about how to read files in chunks:
 	while(rfd >0){
 		start =0;
