@@ -113,13 +113,11 @@ int replaceWords(int fd, const char* find, const char* replace){
 			//print the chars up until the word to replace:
 			temp = fwrite(fileBuff+start, sizeof(char),nextWord-(fileBuff+start), stdout );
 			if (temp <0){
-				printf("Error! couldn't write to stdout");
 				return 1;
 			}
 			//print the replaced word:
 			temp = fwrite(replace, sizeof(char), strlen(replace), stdout);
 			if (temp <0){
-				printf("Error! couldn't write to stdout");
 				return 1;
 			}
 			int length = nextWord-fileBuff - start; //how much printed till now
