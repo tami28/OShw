@@ -164,7 +164,9 @@ int replaceWords2(int fd, const char* find, const char* replace){
 	if(find == NULL || replace == NULL){
 		return 1;
 	}
+	//Format of getting fstat taken from http://codewiki.wikidot.com/c:system-calls:fstat
 
+	//allocate place for the file according to it's size. Written in the forum it's allowed, along with the use of fstat.
 	struct stat fileStat;
 	if(fstat(fd,&fileStat) < 0){
 		return 1;
@@ -178,8 +180,8 @@ int replaceWords2(int fd, const char* find, const char* replace){
 
 	//read all the file:
 	while (total < fileStat.st_size){
-		total+= rfd;
 		rfd = read(fd, buffer, fileStat.st_size );
+		total+= rfd;
 		if(rfd<0){
 			free(buffer);
 			return 1;
