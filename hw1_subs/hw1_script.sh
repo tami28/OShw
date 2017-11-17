@@ -5,4 +5,4 @@ cd $HW1DIR
 cp ${1} $HW1TF
 chmod 744 $HW1TF
 cd ..
-./hw1_subs yes no	
+./hw1_subs no yes

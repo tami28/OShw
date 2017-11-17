@@ -22,7 +22,6 @@
 #define FILE_BUFF 12 //4096
 #define MAX(first,second) (((first)>(second))?(first) : (second))
 
-int replaceWords(int fd, const char* find, const char* replace);
 int replaceWords2(int fd, const char* find, const char* replace);
 char* createPath( const char* dir, const char* file);
 
@@ -58,8 +57,11 @@ int main(int argc, const char* argv[]){
 	}
 	//Replace and print words:
 	int ret = replaceWords2(fd, argv[1], argv[2]);
-	if (ret != 0){
+	if (ret == 0){
 		printf("%s", strerror (errno));
+	}
+	if (ret == 2){
+		printf("Error, read more bytes then the file's alleged size.");
 	}
 	//Clean after us:
 	free(fullPath);
@@ -86,77 +88,6 @@ char* createPath( const char* dir, const char* file){
 	strcat(fullPath, "/\0");
 	strcat(fullPath, file);
 	return fullPath;
-}
-
-int replaceWords(int fd, const char* find, const char* replace){
-	//sanity check for cars:
-	if(find == NULL || replace == NULL){
-		return 1;
-	}
-	//initiialize vars:
-	char fileBuff[FILE_BUFF+1] = {0}; //last one for \0 for strstr
-	char* nextWord = NULL;
-	int start =0;
-	int temp = 0;
-	int findLen = strlen(find);
-	ssize_t rfd = read(fd, fileBuff, FILE_BUFF );
-	//check if read:
-	if (rfd < 0){
-		printf("Error! : couldn't read from file");
-		return 1;
-	}
-	fileBuff[rfd] = '\0';
-	//Found part of the loop in stack overflow, about how to read files in chunks:
-	while(rfd > 0){
-		//TODO
-		printf("\nbuffer:%s\nend buffer\n", fileBuff);
-		rfd+= start;
-		start =0;
-		fileBuff[rfd+1] = '\0';//TODO
-		//For the current buffer, want to find all instance of the word to replace, this is the inner while:
-		nextWord = strstr(&(fileBuff[start]), find);
-		while(nextWord != NULL){
-			//print the chars up until the word to replace:
-			temp = fwrite(fileBuff+start, sizeof(char),nextWord-(fileBuff+start), stdout );
-			if (temp <0){
-				return 1;
-			}
-			//print the replaced word:
-			temp = fwrite(replace, sizeof(char), strlen(replace), stdout);
-			if (temp <0){
-				return 1;
-			}
-			int length = nextWord-fileBuff - start; //how much printed till now
-			//advance the starting point and look for next occurrence:
-			start = start+ findLen + length; //TODO: +1??
-			nextWord = strstr(&(fileBuff[start]), find);
-		}
-		//print the rest of the buffer until
-		int left_to_print = MAX((MAX(start, (rfd-WORD_MAX)) - start), rfd-start);
-		printf("\n printing left buffer: %d\n", left_to_print);
-		temp = fwrite(fileBuff+start,  sizeof(char), left_to_print, stdout);
-		if (temp <0){
-			return 1;
-		}
-		start = MAX(start, (rfd-WORD_MAX));
-
-		//Need to read more
-			for(int i=0; i<rfd - start; i++){
-				fileBuff[i] = fileBuff[start+i];
-			}
-			rfd = read(fd, &(fileBuff[FILE_BUFF - start]), start);
-	}
-	//need?
-	//temp = fwrite(fileBuff,  sizeof(char), start, stdout);
-	if (temp <0){
-		return 1;
-	}
-
-	if(rfd <0){
-		return 1;
-	}
-
-	return 0;
 }
 
 int replaceWords2(int fd, const char* find, const char* replace){
