@@ -10,8 +10,8 @@ def randX():
 
 def randY(x):
     if((0<=x and x<=0.25) or (0.5<=x and x<=0.75)):
-        return int(numpy.random.binomial(1, 0.8))
-    return int(numpy.random.binomial(1, 0.1))
+        return numpy.random.binomial(1, 0.8)
+    return numpy.random.binomial(1, 0.1)
 
 def sample_points(m = 100) :
     points_x = [randX() for i in range(m)]
@@ -48,7 +48,6 @@ def testsC():
             erm_intervals, erm_count_err = intervals.find_best_interval(x,y,2)
             emp_errs.append(erm_count_err/m)
             true_errs.append(calcTrueError(erm_intervals))
-        print("finished {}".format(m))
         emp_res.append((m, sum(emp_errs)/T))
         true_res.append((m, sum(true_errs)/T))
     plt.plot([x[0] for x in emp_res], [x[1] for x in emp_res], color = "yellow", label = "Emp error")
@@ -124,10 +123,11 @@ def checkHypOnX(x, hyp):
             return 1
     return 0
 plot_points_A()
-testsC()
+
 hyps = testD()
 hyp = crossValid(hyps)
 
+testsC()
 print("\nIntervals: {}".format(hyp))
 
 #Result: Intervals: [(0.010681780036703725, 0.24697634733123064), (0.49696588960744587, 0.72688024561992848)]
