@@ -1,4 +1,6 @@
 import random
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import numpy
 import intervals as intervals
@@ -8,8 +10,8 @@ def randX():
 
 def randY(x):
     if((0<=x and x<=0.25) or (0.5<=x and x<=0.75)):
-        return numpy.random.binomial(1, 0.8)
-    return numpy.random.binomial(1, 0.1)
+        return int(numpy.random.binomial(1, 0.8))
+    return int(numpy.random.binomial(1, 0.1))
 
 def sample_points(m = 100) :
     points_x = [randX() for i in range(m)]
@@ -33,8 +35,7 @@ def plot_points_A():
         plt.axvspan(tup[0],tup[1],alpha=0.5,color="yellow")
     plt.xlabel("x")
     plt.ylabel("y")
-    plt.savefig("a.jpg")
-
+    plt.savefig('a.png')
 def testsC():
     emp_res = []
     true_res = []
@@ -54,7 +55,7 @@ def testsC():
     plt.plot([x[0] for x in emp_res], [x[1] for x in true_res], color = "purple", label = "True error")
     plt.xlabel("m")
     plt.legend()
-    plt.savefig("c.jpg")
+    plt.savefig("c.png")
 
 
 def testD():
@@ -72,7 +73,7 @@ def testD():
     plt.legend()
     plt.annotate('k*', xy=(emp_err_res.index(min(emp_err_res))+1, min(emp_err_res)))
     plt.xlabel("k")
-    plt.savefig("d.jpg")
+    plt.savefig("d.png")
     print("k* is {}".format(hypo[emp_err_res.index(min(emp_err_res))]))
     return hypo
 
@@ -130,3 +131,4 @@ hyp = crossValid(hyps)
 print("\nIntervals: {}".format(hyp))
 
 #Result: Intervals: [(0.010681780036703725, 0.24697634733123064), (0.49696588960744587, 0.72688024561992848)]
+
