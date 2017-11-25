@@ -108,7 +108,7 @@ def calcError(interval,typ): #(interval,type) where type is 0 or 1
 
 def crossValid(hyps):
     x,y = sample_points(50)
-    emp_err = [0 for x in range(1,21)] #for each k
+    emp_err = [0 for num in range(1,21)] #for each k
     for i in range (0,len(hyps)):
         counter = 0
         for j in range(0,50):
