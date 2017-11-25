@@ -48,7 +48,7 @@ def testsC():
             erm_intervals, erm_count_err = intervals.find_best_interval(x,y,2)
             emp_errs.append(erm_count_err/m)
             true_errs.append(calcTrueError(erm_intervals))
-        emp_res.append((m, sum(emp_errs)/T))
+        emp_res.append((m, sum(emp_errs)/float(T)))
         true_res.append((m, sum(true_errs)/T))
     plt.plot([x[0] for x in emp_res], [x[1] for x in emp_res], color = "yellow", label = "Emp error")
     plt.plot([x[0] for x in emp_res], [x[1] for x in true_res], color = "purple", label = "True error")
@@ -64,7 +64,7 @@ def testD():
     true_err_res = []
     for k in range(1,21):
         erm_intervals, erm_count_err = intervals.find_best_interval(x,y,k)
-        emp_err_res.append(erm_count_err/50)
+        emp_err_res.append(erm_count_err/50.0)
         true_err_res.append(calcTrueError(erm_intervals))
         hypo[k-1] = erm_intervals
     plt.plot([x for x in range(1,21)], [x for x in emp_err_res], color = "yellow", label = "Emp Error")
@@ -114,7 +114,8 @@ def crossValid(hyps):
         for j in range(0,50):
             if (checkHypOnX(x[j], hyps[i]) != y[j]):
                 counter+=1
-        emp_err[i] = counter/50
+        emp_err[i] = counter/50.0
+    #import pdb ; pdb.set_trace()
     return hyps[emp_err.index(min(emp_err))]
 
 def checkHypOnX(x, hyp):
