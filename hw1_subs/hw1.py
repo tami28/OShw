@@ -33,7 +33,7 @@ def plot_points_A():
         plt.axvspan(tup[0],tup[1],alpha=0.5,color="yellow")
     plt.xlabel("x")
     plt.ylabel("y")
-    plt.show()
+    plt.savefig("a.jpg")
 
 def testsC():
     emp_res = []
@@ -54,7 +54,7 @@ def testsC():
     plt.plot([x[0] for x in emp_res], [x[1] for x in true_res], color = "purple", label = "True error")
     plt.xlabel("m")
     plt.legend()
-    plt.show()
+    plt.savefig("c.jpg")
 
 
 def testD():
@@ -72,7 +72,7 @@ def testD():
     plt.legend()
     plt.annotate('k*', xy=(emp_err_res.index(min(emp_err_res))+1, min(emp_err_res)))
     plt.xlabel("k")
-    plt.show()
+    plt.savefig("d.jpg")
     print("k* is {}".format(hypo[emp_err_res.index(min(emp_err_res))]))
     return hypo
 
