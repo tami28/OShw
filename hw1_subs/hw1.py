@@ -46,10 +46,10 @@ def testsC():
         for t in range(0,T):
             x,y = sample_points(m)
             erm_intervals, erm_count_err = intervals.find_best_interval(x,y,2)
-            emp_errs.append(erm_count_err/m)
+            emp_errs.append(erm_count_err/float(m))
             true_errs.append(calcTrueError(erm_intervals))
         emp_res.append((m, sum(emp_errs)/float(T)))
-        true_res.append((m, sum(true_errs)/T))
+        true_res.append((m, sum(true_errs)/float(T)))
     plt.plot([x[0] for x in emp_res], [x[1] for x in emp_res], color = "yellow", label = "Emp error")
     plt.plot([x[0] for x in emp_res], [x[1] for x in true_res], color = "purple", label = "True error")
     plt.xlabel("m")
