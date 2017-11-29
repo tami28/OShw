@@ -1,0 +1,1 @@
+gcc -std=c99 -D_XOPEN_SOURCE myshell.c myshell_main.c -o hw2
