@@ -6,6 +6,14 @@
 #include <unistd.h>
 #include <signal.h>
 
+/**
+ * Helper Functions:
+ *      isPiped - is the command piped annd where
+ *      isBackground - ...
+ *      execChild - incharge of ececuting a child, with a proper pipe if needed.
+ * Main Function:
+ *      Execute the command according to BG\FG\PIPED. Waitpid for non BG children.
+ */
 
 static const char ERR_DUP[] = "Error in dup, couldn't create pipe correctly.\n";
 static const char ERR_EXEC[] =  "Error in execvp, couldn't run command.\n";
