@@ -14,7 +14,7 @@ MODULE_LICENSE("GPL");
 
 
 /*
- * Announce our functions
+ * Announce our functions, can't include h if it's there so...
  */
 static int deviceOpen(struct inode *, struct file *);
 static int deviceRelease(struct inode *, struct file *);
@@ -26,6 +26,7 @@ static void freeList(Channel* channelList);
 static void freeMinors(void);
 MinorList* minors = NULL;
 
+//used to register in kernel:
 struct file_operations fops =
         {
                 .read           = deviceRead,
@@ -50,15 +51,16 @@ static int __init deviceInit(void){
     }
 
     printk(KERN_INFO "message_slot: registered major number %d\n", DEVICE_MAJOR);
-    return 0;
+    return SUCCESS;
 }
 
 static int deviceOpen(struct inode * in, struct file * fs){
     unsigned minor = iminor(in);
-    printk(KERN_INFO "message_slot: Opening device with minor %d\n", minor);
     int found = 0;
     MinorList* curr = minors;
     MinorList* prev = NULL;
+    printk(KERN_INFO "message_slot: Opening device with minor %d\n", minor);
+    //Search current knowm minors if this exists already:
     if (minors != NULL){
         while(curr != NULL){
             if (curr->minor == minor){
@@ -68,21 +70,22 @@ static int deviceOpen(struct inode * in, struct file * fs){
             prev = curr;
             curr = curr->next;
         }
+        //Exists:
         if(found == 1){
             return SUCCESS;
         }
+        //Create:
         prev->next = (MinorList*)kmalloc(sizeof(MinorList), GFP_KERNEL);
         if(prev->next == NULL){
-            //TODO: errno
-            return FAILED;
+            return -ENOMEM;
         }
         curr = prev->next;
     } else{
+        //No minors at all! first one :)
         minors = (MinorList*)kmalloc(sizeof(MinorList), GFP_KERNEL);
         if (minors == NULL){
-            //TODO errno
             printk(KERN_ERR "message_slot: Couldn't allocte memory");
-            return FAILED;
+            return -ENOMEM;
         }
         curr = minors;
     }
@@ -95,12 +98,18 @@ static int deviceOpen(struct inode * in, struct file * fs){
     return SUCCESS;
 }
 
+
 static ssize_t deviceWrite(struct file * fs, const char * buff, size_t len, loff_t * something){
     unsigned minor = iminor(fs->f_path.dentry->d_inode);
-    printk(KERN_INFO "message_slot: Got minor %d in write", minor);
     MinorList* currMinor = NULL;
     MinorList* curr = minors;
     ssize_t i =-1;
+    printk(KERN_INFO "message_slot: Got minor %d in write", minor);
+    if (len > 128){
+        printk(KERN_ERR "message_slot: Message too long");
+        return -EINVAL;
+    }
+    //Get the node for this minor:
     while(curr != NULL){
         if(curr->minor == minor){
             currMinor=curr;
@@ -108,19 +117,19 @@ static ssize_t deviceWrite(struct file * fs, const char * buff, size_t len, loff
         }
         curr = curr->next;
     }
+    //Couldn't find minor\has no channel:
     if(currMinor == NULL || currMinor->curr == NULL){
-        //TODO:: set errno here
-        printk(KERN_INFO "message_slot: Minor %d doesn't exist or wasn't ioctl'ed", minor);
-        return FAILED;
+        printk(KERN_ERR "message_slot: Minor %d doesn't exist or channel wasn't ioctl'ed", minor);
+        return -EINVAL;
     }
+    //copy to our buffr & update length:
     for(i = 0; i < len && i < (BUFFER_LENGTH-1); ++i )
     {
         get_user(currMinor->curr->message[i], &buff[i]);
     }
-    printk(KERN_INFO "message_slot: current i: %d\n", i);
-    currMinor->curr->message[i] = '\0';
-    printk(KERN_INFO "message_slot: Finished write");
-    return SUCCESS;
+    currMinor->curr->length = i;
+    //currMinor->curr->message[i] = '\0';
+    return i;
 
 }
 
@@ -129,6 +138,7 @@ static ssize_t deviceRead(struct file * fs, char * buff, size_t len, loff_t * so
     MinorList* currMinor = NULL;
     MinorList* curr = minors;
     ssize_t i =-1;
+    //find minor:
     while(curr != NULL){
         if(curr->minor == minor){
             currMinor=curr;
@@ -136,32 +146,42 @@ static ssize_t deviceRead(struct file * fs, char * buff, size_t len, loff_t * so
         }
         curr = curr->next;
     }
+    //wasn't created or no channel was ioctl'ed:
     if(currMinor == NULL || currMinor->curr == NULL){
-        //TODO:: set errno here
-        return i;
+        return -EINVAL;
     }
+    //No message is written:
+    if (currMinor->curr->length == 0){
+        return -EWOULDBLOCK;
+    }
+    //not enough space in given buffer:
+    if(len < currMinor->curr->length){
+        return -ENOSPC;
+    }
+    //copy:
     for(i = 0; i < len && i < BUFFER_LENGTH; ++i )
     {
         put_user(currMinor->curr->message[i], &buff[i]);
     }
     return i;
-
 }
 
 static int deviceRelease(struct inode * in, struct file * fs){
+    //nothing to do here..
     return 0;
 }
 
 static long deviceIoctl( struct file* file, unsigned int   ioctl_command_id, unsigned long  ioctl_param ){
     unsigned minor = iminor(file->f_path.dentry->d_inode);
-    printk(KERN_INFO "message_slot: Got minor %d in ioctl", minor);
     MinorList* curr = minors;
     int found = 0;
+    Channel* wanted = NULL;
+    //not a known command:
     if(MSG_SLOT_CHANNEL != ioctl_command_id){
         printk(KERN_ERR "message_slot: Error in ioctl - not the right command id");
-        //TODO is this what is supposed to be here?
-        return FAILED;
+        return -EINVAL;
     }
+    //find minor:
     while(curr != NULL){
         if (curr->minor == minor){
             found = 1;
@@ -169,18 +189,18 @@ static long deviceIoctl( struct file* file, unsigned int   ioctl_command_id, uns
         }
         curr = curr->next;
     }
+    //no such minor, should have opened first.
     if(found == 0){
         printk(KERN_ERR "message_slot: No such minor (in ioctl)");
-        //tODO: errno here
-        return FAILED;
+        return -ENOENT;
     }
-
+    //already the channel:
     if (curr->curr != NULL && curr->curr->id ==ioctl_param){
         return SUCCESS;
     }
-    Channel* wanted = curr->channels;
+    //search for the channel & create one if needed:
+    wanted = curr->channels;
     found = 0;
-
     while(wanted != NULL){
         if (wanted->id == ioctl_param){
             found = 1;
@@ -196,9 +216,9 @@ static long deviceIoctl( struct file* file, unsigned int   ioctl_command_id, uns
     curr->curr = (Channel*)kmalloc(sizeof(Channel), GFP_KERNEL );
     if (curr->curr == NULL){
         printk(KERN_ERR "message_slot: couldn't kmalloc in ioctl");
-        //todo errno here
-        return FAILED;
+        return -ENOMEM;
     }
+    //initialize new channel:
     curr->curr->next = curr->channels;
     if (curr->channels != NULL){
         curr ->channels->prev = curr->curr;
@@ -208,13 +228,11 @@ static long deviceIoctl( struct file* file, unsigned int   ioctl_command_id, uns
     curr->curr->prev = NULL;
     curr ->curr->id = ioctl_param;
     curr->curr->length = 0;
-    printk(KERN_INFO "message_slot: Finished ioctl!");
     return SUCCESS;
 
 }
 
 
-//TODO!!!!! keep message lebgth and use is in read.
 static void __exit cleanup(void){
     //free memory:
     freeMinors();
@@ -223,27 +241,28 @@ static void __exit cleanup(void){
 }
 
 static void freeMinors(void){
+    MinorList* curr;
+    MinorList* prev = minors;
     if(minors == NULL){
         return;
     }
-
-    MinorList* curr = minors->next;
-    MinorList* prev = minors;
+    curr = minors->next;
     while (prev!= NULL){
         curr = prev->next;
         freeList(prev->channels);
         kfree(prev);
         prev = curr;
     }
-
 }
 
 static void freeList(Channel* channelList){
+    Channel* curr;
+    Channel* prev ;
     if(channelList == NULL){
         return;
     }
-    Channel* curr = channelList->next;
-    Channel* prev = channelList;
+    curr  = channelList->next;
+    prev = channelList;
     while(prev!=NULL){
         curr = prev->next;
         kfree(prev);

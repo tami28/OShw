@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 
 int main(int argc, char** argv) {
@@ -16,18 +17,19 @@ int main(int argc, char** argv) {
     }
     int fd = open(argv[1], O_RDWR);
     if (fd < 0){
-        printf("Couldn't open the file\n");
-        //TODO:errno
+        printf("Couldn't open the file, errno %d\n", errno);
         return -1;
     }
     int channel = atoi( argv[2] );
-    int ret_val = ioctl( fd, MSG_SLOT_CHANNEL,channel );
-    printf("Changed to channel %d\nprinting length of %d\n", channel,  strlen(argv[3]));
+    int ret_val;
+    ret_val = ioctl( fd, MSG_SLOT_CHANNEL,channel );
+    if (ret_val < 0){
+        printf("Error in ioctl: %d", errno);
+    }
     ret_val = write( fd, argv[3], strlen(argv[3]));
     if (ret_val != SUCCESS){
         printf("Failed writing");
     }
-    printf("wrote to the channel\n");
     close(fd);
     return 0;
 
