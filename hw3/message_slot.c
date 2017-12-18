@@ -105,8 +105,12 @@ static ssize_t deviceWrite(struct file * fs, const char * buff, size_t len, loff
     MinorList* curr = minors;
     ssize_t i =-1;
     printk(KERN_INFO "message_slot: Got minor %d in write", minor);
-    if (len > 128){
-        printk(KERN_ERR "message_slot: Message too long");
+    if (len > 128 || len <= 0){
+        printk(KERN_ERR "message_slot: Invalid length");
+        return -EINVAL;
+    }
+    if(buff == NULL){
+        printk(KERN_ERR "message_slot: Invalid buffer");
         return -EINVAL;
     }
     //Get the node for this minor:
