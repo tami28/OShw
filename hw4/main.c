@@ -11,141 +11,78 @@
 #include <sys/types.h>
 #include <linux/unistd.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 1048576
 void writeToOutputFileAndCleanBuffer();
 void noThreadAllXor(int argc, char** argv);
 void workerMain(char *filePath);
 int readNextBlock(int fd, char* buff);
 void xorWithOutput(char* inputBuffer, int length, int isFirst);
-void xorAndWrite(char*, int, int);
+void xorAndWrite(char*, int
+        , int);
 
 
 int numThreads =1, workersDone =0, outputFD=0, lengthToWrite = 0;
 int level = 0;
-
 pthread_mutex_t bufferLock;
 pthread_cond_t  allDoneCond;
-
 char outputBuffer[BUFFER_SIZE] = {0};
 
 pthread_t* threads;
 
-
-//
-//void noThreadAllXor(int argc, char** argv){
-//    //OPEN ALL FILES:
-//    int fd = open(argv[2], O_RDONLY);
-//    char buff[BUFFER_SIZE] = {0};
-//    if(fd < 0){
-//        exit(-1);
-//    }
-//    firstFile = (Node*)malloc(sizeof(Node));
-//    if (firstFile == NULL){
-//        exit(-1);
-//    }
-//    firstFile->fd = fd;
-//    firstFile->next = NULL;
-//    firstFile->prev = NULL;
-//
-//    Node* curr = firstFile, *prev = firstFile->prev;
-//    for (int i=3; i< argc; i++){
-//        fd = open(argv[i], O_RDONLY);
-//        if(fd < 0){
-//            exit(-1);
-//        }
-//        curr = (Node*)malloc(sizeof(Node));
-//        if (curr == NULL){
-//            exit(-1);
-//        }
-//        curr->fd = fd;
-//        curr->next = NULL;
-//        curr->prev = prev;
-//        if (prev != NULL){prev->next = curr;}
-//        prev = curr;
-//        curr = curr->next;
-//    }
-//    printf("finished creating nodes\n");
-//    int numStillOpen = argc-2;
-//
-//    while (numStillOpen > 0){
-//        curr = firstFile;
-//        for (int i=0; i<numStillOpen; i++){
-//            int ret = readNextBlock(curr->fd, buff);
-//            printf("still open: %d\n", numStillOpen);
-//            xorWithOutput(buff, ret);
-//            //File finished:
-//            if (ret<BUFFER_SIZE){
-//                close(curr->fd);
-//                curr->next->prev = curr->prev;
-//                if(curr->prev == NULL){
-//                    firstFile = curr->next;
-//                } else{
-//                    curr->prev->next = curr->next;
-//                }
-//                curr = curr->next;
-//                free(curr);
-//
-//                numStillOpen--;
-//            }
-//            curr = curr->next;
-//
-//        }
-//        writeToOutputFileFileAndCleanBuffer();
-//    }
-//}
-
+//Used for debugging:
 void printTid(){
     pthread_t pt = pthread_self();
     unsigned int * x = (unsigned int*)(&pt);
     printf("%u",*x);
-//    for (size_t i=0; i<sizeof(pt); i++) {
-//        printf("%02x", (unsigned)(ptc[i]));
-//    }
 }
 
+/*
+ * This is the "main" of each of the threads.
+ */
 void workerMain(char *filePath){
     char buff[BUFFER_SIZE];
-    int isFirst = 1;
     int readBytes = 0; //bytes read in reading
     int inputFd = open(filePath, O_RDONLY);
     int current_level =0;
+    //Try open file path:
     if (inputFd < 0){
         printf("couldn't open file %s. reason: %d\n", filePath, errno);
         exit(2);
     }
 
+    //Read one block at a time:
     while((readBytes = readNextBlock(inputFd, buff))>0){
         xorAndWrite(buff, readBytes, current_level);
         current_level++;
     }
     //finished, handle finished details:
-    pthread_mutex_lock(&bufferLock);
-    printTid();
-    printf(" done reading\n");
-    if (current_level!=level){
-        printTid();
-        printf(" waiting for level to finish before done..%d,%d.\n", current_level, level);
-        pthread_cond_wait(&allDoneCond, &bufferLock);
+    if (pthread_mutex_lock(&bufferLock) != 0){
+        printf("Error locking");
+        exit(2);
     }
-    //I'm not last, safely decrement:
-
+    //The level hasn'tt finished yet, we don't want to touch the numThreads:
+    if (current_level!=level){
+        if (pthread_cond_wait(&allDoneCond, &bufferLock) != 0){
+            printf("Error waiting for condition variable");
+            exit(2);
+        }
+    }
+    //This thread isn't the last one in the round after(!) he finished, safely decrement:
     if(workersDone != numThreads-1){
-        printTid();
-        printf(" level not done. bye bye\n");
         numThreads--;
-        pthread_mutex_unlock(&bufferLock);
-    } else{
-        printTid();
-        printf(" I am fucking last\n");
+        if (pthread_mutex_unlock(&bufferLock) != 0){
+            printf("Error unlocking");
+            exit(2);
+        }
+    } else{ //he is the last one, it needs to right annd safely decrement:
         numThreads--;
         writeToOutputFileAndCleanBuffer();
-        pthread_mutex_unlock(&bufferLock);
+        if (pthread_mutex_unlock(&bufferLock) != 0){
+            printf("Error unlocking");
+            exit(2);
+        }
     }
-    printTid();
-    printf(" dead\n");
     pthread_exit(NULL);
-
-
 }
 
 int readNextBlock(int fd, char* buff){
@@ -155,6 +92,7 @@ int readNextBlock(int fd, char* buff){
         ret = read(fd, &(buff[bytesRead]), BUFFER_SIZE- bytesRead);
         bytesRead+=ret;
     }
+    //Failed reading, kill everyone:
     if (ret < 0){
         printf("couldn't read from a input file\n");
         exit(2);
@@ -169,59 +107,79 @@ int readNextBlock(int fd, char* buff){
  */
 void xorAndWrite(char* inputBuffer, int length, int current_level){
     xorWithOutput(inputBuffer, length, current_level);
-    pthread_mutex_lock(&bufferLock);
+    if (pthread_mutex_lock(&bufferLock) != 0){
+        printf("Error locking");
+        exit(2);
+    }
     workersDone ++;
     if(length > lengthToWrite){
         lengthToWrite = length;
     }
-
+    //Last one: write to file & inintialuze everything:
     if(workersDone == numThreads){
         writeToOutputFileAndCleanBuffer();
     }
-    pthread_mutex_unlock(&bufferLock);
-
-
+    if (pthread_mutex_unlock(&bufferLock) != 0){
+        printf("Error unlocking");
+        exit(2);
+    }
 }
 
+/*
+ * Xor safely with output:
+ */
 void xorWithOutput(char* inputBuffer, int length, int current_level){
-    pthread_mutex_lock(&bufferLock);
-
-    if (current_level != level){
-        pthread_cond_wait(&allDoneCond, &bufferLock);
+    if (pthread_mutex_lock(&bufferLock) != 0){
+        printf("Error locking");
+        exit(2);
     }
-//    if (! isFirst){
-//        printf("Not first write. wait on cond\n");
-//
-//    }
-    printTid();
-    printf(" Xoring...\n");
+    //Wait until the previous level was done
+    if (current_level != level){
+        if (pthread_cond_wait(&allDoneCond, &bufferLock) != 0){
+            printf("Error waiting for condition variable");
+            exit(2);
+        }
+    }
+    //Xor:
     for (int i =0; i<length; i++){
         outputBuffer[i] ^= inputBuffer[i];
     }
-    pthread_mutex_unlock(&bufferLock);
+    if (pthread_mutex_unlock(&bufferLock) != 0){
+        printf("Error unlocking");
+        exit(2);
+    }
 
 }
 
 
 void writeToOutputFileAndCleanBuffer(){
-    printTid();
-    printf(" Writing to file: %d\n", lengthToWrite);
-    int ret =write(outputFD, outputBuffer,lengthToWrite);
+    //write to file:
+    int ret = write(outputFD, outputBuffer,lengthToWrite);
     if (ret < 0 ){
-        printf("Error writing %d\n", errno);
+        printf("Error in write, errno %d", errno);
         exit(2);
     }
+    //initialize buffer (Xor with 0):
     for (int i = 0; i< BUFFER_SIZE; i++){
         outputBuffer[i] = 0;
     }
+    //initialize params:
     workersDone = 0;
     lengthToWrite = 0;
     level++;
-    pthread_cond_broadcast(&allDoneCond);
+    //free all those who are waiting:
+    ret = pthread_cond_broadcast(&allDoneCond);
+    if (ret != 0){
+        printf("Error in pthread_cond_broadcast, errno %d", errno);
+        exit(2);
+    }
 }
 
-//numThreadsd should be updated before calling this:
+/*
+ * Create all threads & initialize locks etc:
+ */
 void initAndcreateThreads(char **in_file_path){
+
     pthread_mutex_init(&bufferLock, NULL); //TODO everywhere: check return vals.
     pthread_cond_init(&allDoneCond, NULL);
     threads = (pthread_t*)malloc(numThreads*sizeof(pthread_t));
@@ -248,7 +206,7 @@ int main(int argc, char** argv) {
     if(printf("Hello, creating %s from %d input files\n", argv[1],argc-2 )<0){
         exit(-1);
     }
-    outputFD = open(argv[1], O_CREAT| O_TRUNC | O_WRONLY);
+    outputFD = open(argv[1], O_CREAT| O_TRUNC | O_WRONLY, 0644);
     if(outputFD < 0){
         printf("failed opening \\ creating output file %s beacuse %d\n", argv[1], errno);
         exit(-1);
@@ -261,6 +219,7 @@ int main(int argc, char** argv) {
     waitForThreads();
     close(outputFD);
     printf("finished\n");
+    //TODO!!! destroy locks
     free(threads);
     return 0;
 }
