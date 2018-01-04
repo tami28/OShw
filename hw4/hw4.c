@@ -12,13 +12,45 @@
 #include <linux/unistd.h>
 
 #define BUFFER_SIZE 1048576
+/*
+ * Writes the xored buffer into to output file according to maxLength
+ * initializes all needed vars
+ * broadcasts to threads to continue.
+ */
 void writeToOutputFileAndCleanBuffer();
-void noThreadAllXor(int argc, char** argv);
+/*
+ * Main of each thread, handles file ops, reads & xors & quits.
+ * Knows it can die safely when it finished reading and the thread's level is the same as the global level.
+ */
 void workerMain(char *filePath);
+/*
+ * reads next block (or as much there is) for given fd.
+ */
 int readNextBlock(int fd, char* buff);
-void xorWithOutput(char* inputBuffer, int length, int isFirst);
-void xorAndWrite(char*, int
-        , int);
+/*
+ * Incharge of actually xoring given buff with the output.
+ */
+void xorWithOutput(char* inputBuffer, int length, int level);
+/*
+ * What each thread calls. Handles xoring & when to write.
+ */
+void xorAndWrite(char*, int , int);
+/*
+ * incharge of joining threads & destroying mutex etc..
+ */
+void waitForThreads(int totalNumberOfThreads);
+/*
+ * Initialize mutex etc and create threads.
+ */
+void initAndcreateThreads(char **in_file_path);
+//#define DEBUG
+
+#ifdef DEBUG
+#define LOG(x) printf x
+#else
+#define LOG(x)
+
+#endif
 
 
 int numThreads =1, workersDone =0, outputFD=0, lengthToWrite = 0;
@@ -27,15 +59,18 @@ pthread_mutex_t bufferLock;
 pthread_cond_t  allDoneCond;
 pthread_attr_t attr;
 char outputBuffer[BUFFER_SIZE] = {0};
-
 pthread_t* threads;
 
 //Used for debugging:
+#ifdef DEBUG
 void printTid(){
     pthread_t pt = pthread_self();
     unsigned int * x = (unsigned int*)(&pt);
     printf("%u",*x);
 }
+#else
+    void printTid(){}
+#endif
 
 /*
  * This is the "main" of each of the threads.
@@ -45,6 +80,7 @@ void workerMain(char *filePath){
     int readBytes = 0; //bytes read in reading
     int inputFd = open(filePath, O_RDONLY);
     int current_level =0;
+    int ret;
     //Try open file path:
     if (inputFd < 0){
         printf("couldn't open file %s. reason: %d\n", filePath, errno);
@@ -57,32 +93,36 @@ void workerMain(char *filePath){
         current_level++;
     }
     //finished, handle finished details:
-    if (pthread_mutex_lock(&bufferLock) != 0){
-        printf("Error locking 1\n");
+    if ((ret = pthread_mutex_lock(&bufferLock)) != 0){
+        printTid();
+        LOG(("Error locking 1, beacuse of %d\n", ret));
         exit(2);
     }
     //The level hasn'tt finished yet, we don't want to touch the numThreads:
     if (current_level!=level){
-        if (pthread_cond_wait(&allDoneCond, &bufferLock) != 0){
-            printf("Error waiting for condition variable\n");
+        if ((ret = pthread_cond_wait(&allDoneCond, &bufferLock)) != 0){
+            printf("Error waiting for condition variable, %d\n", ret);
             exit(2);
         }
     }
     //This thread isn't the last one in the round after(!) he finished, safely decrement:
     if(workersDone != numThreads-1){
         numThreads--;
-        if (pthread_mutex_unlock(&bufferLock) != 0){
-            printf("Error unlocking\n");
+        if ((ret = pthread_mutex_unlock(&bufferLock)) != 0){
+            printf("Error unlocking, %d\n", ret);
             exit(2);
         }
     } else{ //he is the last one, it needs to right annd safely decrement:
         numThreads--;
         writeToOutputFileAndCleanBuffer();
-        if (pthread_mutex_unlock(&bufferLock) != 0){
+        if ((ret = pthread_mutex_unlock(&bufferLock)) != 0){
             printf("Error unlocking\n");
             exit(2);
         }
     }
+    close(inputFd);
+    printTid();
+    LOG(( " is quitting\n"));
     pthread_exit(NULL);
 }
 
@@ -142,6 +182,8 @@ void xorWithOutput(char* inputBuffer, int length, int current_level){
         }
     }
     //Xor:
+    printTid();
+    LOG((" is xoring\n"));
     for (int i =0; i<length; i++){
         outputBuffer[i] ^= inputBuffer[i];
     }
@@ -155,8 +197,17 @@ void xorWithOutput(char* inputBuffer, int length, int current_level){
 
 void writeToOutputFileAndCleanBuffer(){
     //write to file:
+    printTid();
+    LOG(("writing to file\n"));
+
     int ret = write(outputFD, outputBuffer,lengthToWrite);
+    int bytesWritten = ret;
+    while (bytesWritten<lengthToWrite && ret>0){
+        ret = write(outputFD, &(outputBuffer[bytesWritten]), lengthToWrite-bytesWritten);
+        bytesWritten+= ret;
+    }
     if (ret < 0 ){
+        printTid();
         printf("Error in write, errno %d\n", errno);
         exit(2);
     }
@@ -172,6 +223,7 @@ void writeToOutputFileAndCleanBuffer(){
     //free all those who are waiting:
     ret = pthread_cond_broadcast(&allDoneCond);
     if (ret != 0){
+        printTid();
         printf("Error in pthread_cond_broadcast, errno %d\n", errno);
         exit(2);
     }
@@ -210,13 +262,23 @@ void initAndcreateThreads(char **in_file_path){
     }
 }
 
-void waitForThreads(){
-    for (int i = 0; i < numThreads; i++){
+void waitForThreads(int totalNumberOfThreads){
+
+    for (int i = 0; i < totalNumberOfThreads; i++){
         pthread_join(threads[i],NULL);
     }
-    pthread_attr_destroy(&attr);
-    pthread_mutex_destroy(&bufferLock);
-    pthread_cond_destroy(&allDoneCond);
+    if (pthread_attr_destroy(&attr) != 0){
+        printf("error destroying attribute, %d", errno);
+        exit(2);
+    }
+    if(pthread_mutex_destroy(&bufferLock) != 0){
+        printf("error destroying mutex, %d", errno);
+        exit(2);
+    }
+    if (pthread_cond_destroy(&allDoneCond) != 0){
+        printf("error destroying condition, %d", errno);
+        exit(2);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -234,14 +296,13 @@ int main(int argc, char** argv) {
         exit(-1);
     }
     numThreads = argc - 2;
-
-    //do here something
-    //noThreadAllXor(argc, argv);
+    //call threads & destrooy them:
     initAndcreateThreads(&(argv[2]));
-    waitForThreads();
+    waitForThreads(argc-2);
+    ///cleanup:
     close(outputFD);
-    printf("Created %s with size %d bytes\n", argv[1],total_size );
-    //TODO!!! destroy locks
     free(threads);
+    //bye bye
+    printf("Created %s with size %d bytes\n", argv[1],total_size );
     return 0;
 }
