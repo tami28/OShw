@@ -138,7 +138,8 @@ void updateActiveThreads(int i){
     }
 }
 
-void connectionMain(int* connection_fd){
+void connectionMain(void *  fd){
+    int connection_fd = (int) fd;
     unsigned int N;
     char buff[BUFF_LEN];
     int ret =0, totalRead=0;
@@ -146,12 +147,12 @@ void connectionMain(int* connection_fd){
     unsigned int localCounter[PRINTABLES_LEN];
     memset(localCounter,0, PRINTABLES_LEN*sizeof(unsigned int));
     //read N:
-    if (readUint(*connection_fd, &N)){
+    if (readUint(connection_fd, &N)){
         exit(-1);
     }
     // read the stream:
     do{
-        ret = read(*connection_fd, buff, BUFF_LEN);
+        ret = read(connection_fd, buff, BUFF_LEN);
         totalRead+= ret;
         if (ret < 0){
             printf(ERROR_MSG,5, strerror(errno));
@@ -168,11 +169,11 @@ void connectionMain(int* connection_fd){
         exit(-1);
     }
     //Send C:
-    if (sendUint(*connection_fd, totalPrintable)){
+    if (sendUint(connection_fd, totalPrintable)){
         exit(-1);
     }
     //clean up:
-    close(*connection_fd);
+    close(connection_fd);
     parsPrintables(localCounter);
     updateActiveThreads(-1);
     printf("closed thread, left %d\n", active_threads);
@@ -302,7 +303,7 @@ int main(int argc, char** argv) {
         }
         updateActiveThreads(1);
         pthread_t thread;
-        if (pthread_create(&(thread), &attr, (void *(*)(void *))&connectionMain, (void*) &connect_fd) != 0){
+        if (pthread_create(&(thread), &attr, (void *(*)(void *))&connectionMain, (void*) connect_fd) != 0){
             printf("error creating thread, error: %d\n", errno);
             exit(-1);
         }

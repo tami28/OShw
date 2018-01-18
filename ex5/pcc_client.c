@@ -15,8 +15,8 @@
 #define HELP_MSG "Not enough args. Please enter <hostname\\IP> <port> <Length> excatly."
 #define ERROR_MSG "Error: %s\n"
 
-//#define INPUT_FILE "/dev/urandom"
-#define INPUT_FILE "/home/tami/src/ex5/peter_pan.txt"
+#define INPUT_FILE "/dev/urandom"
+//#define INPUT_FILE "/home/tami/src/ex5/peter_pan.txt"
 #define TRUE 1
 #define FALSE 0
 #define BUFF_LEN 16384
