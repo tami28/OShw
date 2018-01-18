@@ -14,9 +14,11 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <signal.h>
+
 
 #define HELP_MSG "Should be called with <port>\n"
-#define ERROR_MSG "Error: %s\n"
+#define ERROR_MSG "Error%d: %s\n"
 #define UINT_LEN 4
 #define PRINTABLES_LEN 95
 #define PRINTABLES_MIN 32
@@ -29,6 +31,16 @@ pthread_attr_t attr;
 unsigned int counters[PRINTABLES_LEN];
 int active_threads = 0;
 bool sigint_happend = false;
+int listen_fd;
+
+
+
+void cleanup();
+
+void sigintHandler(int dummy){
+    sigint_happend = true;
+    cleanup();
+}
 
 int sendUint(int socket_fd,unsigned int N ){
     char * charN = (char*)&N;
@@ -39,7 +51,7 @@ int sendUint(int socket_fd,unsigned int N ){
         written+= ret;
     }
     if (ret < 0 ){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,1, strerror(errno));
         return -1;
     }
     return 0;
@@ -55,7 +67,7 @@ int readUint(int socket_fd, unsigned int * C){
         bytesRead+=ret;
     }
     if (ret <0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,2, strerror(errno));
         return -1;
     }
     *C = *(unsigned int *)charC;
@@ -72,20 +84,19 @@ int bindAndListen(int listen_fd, unsigned int port){
     serv_addr.sin_port = htons(port);
     if( 0 != bind( listen_fd,(struct sockaddr*) &serv_addr,addrsize ) )
     {
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,3, strerror(errno));
         return -1;
     }
     if( 0 != listen( listen_fd, 10 ) )
     {
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,4, strerror(errno));
         return -1;
     }
-
-
+    return 0;
 }
 
 
-//TODO: should only be once ,do for a temp counters arr then add that to the global one
+
 void parsPrintables(unsigned int localCounters[PRINTABLES_LEN]) {
     for (int i =0; i < PRINTABLES_LEN; i++){
         __sync_fetch_and_add(&(counters[i]), localCounters[i]);
@@ -94,7 +105,7 @@ void parsPrintables(unsigned int localCounters[PRINTABLES_LEN]) {
 
 unsigned int parsBuff(unsigned int localCounters[PRINTABLES_LEN], char buff[BUFF_LEN], int size){
     unsigned int ret =0;
-    for (int i=0; i<PRINTABLES_LEN; i++){
+    for (int i=0; i<size; i++){
         if (buff[i] >= PRINTABLES_MIN && buff[i] <= PRINTABLES_MAX){
             localCounters[buff[i] - PRINTABLES_MIN]++;
             ret++;
@@ -106,11 +117,28 @@ unsigned int parsBuff(unsigned int localCounters[PRINTABLES_LEN], char buff[BUFF
 
 
 void updateActiveThreads(int i){
-
-    __sync_fetch_and_add(&active_threads, i);
+    int ret =0;
+    //Change active threads:
+    if (pthread_mutex_lock(&activeThreadsLock) != 0){
+        printf("Error locking 1\n");
+        exit(-1);
+    }
+    active_threads+=i;
+    //Will only effect main thread if is after sigint
+    if (!active_threads){
+        ret = pthread_cond_broadcast(&allDoneCond);
+        if (ret != 0){
+            printf("Error in pthread_cond_broadcast, errno %d\n", errno);
+            exit(2);
+        }
+    }
+    if (pthread_mutex_unlock(&activeThreadsLock) != 0){
+        printf("Error unlocking\n");
+        exit(2);
+    }
 }
 
-void connectionMain(int connection_fd){
+void connectionMain(int* connection_fd){
     unsigned int N;
     char buff[BUFF_LEN];
     int ret =0, totalRead=0;
@@ -118,75 +146,79 @@ void connectionMain(int connection_fd){
     unsigned int localCounter[PRINTABLES_LEN];
     memset(localCounter,0, PRINTABLES_LEN*sizeof(unsigned int));
     //read N:
-    if (readUint(connection_fd, &N)){
+    if (readUint(*connection_fd, &N)){
         exit(-1);
     }
     // read the stream:
-    ret = read(connection_fd, buff, BUFF_LEN);
-    totalRead+= ret;
-    while (totalRead<N && ret >0){
+    do{
+        ret = read(*connection_fd, buff, BUFF_LEN);
+        totalRead+= ret;
+        if (ret < 0){
+            printf(ERROR_MSG,5, strerror(errno));
+            exit(-1);
+        }
         temp = parsBuff(localCounter, buff, ret);
         if (temp < 0){
             exit(-1);
         }
         totalPrintable+= temp;
-        ret =read(connection_fd,buff,BUFF_LEN);
-        totalRead+= ret;
-    }
+    } while(totalRead<N && ret >0);
     if (ret < 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,5, strerror(errno));
         exit(-1);
     }
     //Send C:
-    if (sendUint(connection_fd, totalPrintable)){
+    if (sendUint(*connection_fd, totalPrintable)){
         exit(-1);
     }
     //clean up:
-    close(connection_fd);
+    close(*connection_fd);
+    parsPrintables(localCounter);
     updateActiveThreads(-1);
+    printf("closed thread, left %d\n", active_threads);
 }
 
 
 
 void initLocks(){
     if (pthread_attr_init(&attr) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,6, strerror(errno));
         exit(-1);
     }
     if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,7, strerror(errno));
         exit(-1);
     }
     if (pthread_mutex_init(&activeThreadsLock, NULL) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,8, strerror(errno));
         exit(-1);
     }
 
     if (pthread_mutex_init(&countersLock, NULL) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,9, strerror(errno));
         exit(-1);
     }
     if (pthread_cond_init(&allDoneCond, NULL) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,10, strerror(errno));
         exit(-1);
     }
 }
 
 void destroyLocks(){
     if (pthread_attr_destroy(&attr) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,11, strerror(errno));
         exit(-1);
     }
     if(pthread_mutex_destroy(&countersLock) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,12, strerror(errno));
         exit(-1);
     }
     if(pthread_mutex_destroy(&activeThreadsLock) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,13, strerror(errno));
         exit(-1);
     }
     if (pthread_cond_destroy(&allDoneCond) != 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,14, strerror(errno));
         exit(-1);
     }
 }
@@ -202,40 +234,54 @@ void cleanup(){
 
     //TODO: what if some thread was called just before sigint, and didn't update active threads before this?
     //TODO: need to think how to manage it properly.
-    if (pthread_mutex_lock(&active_threads) != 0){
-        printf("Error locking\n");
+    if (pthread_mutex_lock(&activeThreadsLock) != 0){
+        printf("Error locking 2\n");
         exit(2);
     }
     //Wait until all threads are done:
     if (active_threads){
-        if (pthread_cond_wait(&allDoneCond, &active_threads) != 0){
+        printf("waiting\n");
+        if (pthread_cond_wait(&allDoneCond, &activeThreadsLock) != 0){
             printf("Error waiting for condition variable\n");
             exit(2);
         }
     }
-    if (pthread_mutex_unlock(&active_threads) != 0){
+    if (pthread_mutex_unlock(&activeThreadsLock) != 0){
         printf("Error unlocking\n");
         exit(2);
     }
     //if we got here all threads are done.
     printCounters();
     destroyLocks();
+    // close sockets:
+    if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0){
+        printf(ERROR_MSG,17, strerror(errno) );
+        exit(-1);
+    }
+    close(listen_fd);
+    close(listen_fd);
 }
 
 
 int main(int argc, char** argv) {
-    int listen_fd = -1;
-    int connect_fd = -1;
     struct sockaddr_in peer_addr;
     socklen_t addrsize = sizeof(struct sockaddr_in );
     if (argc != 2){
         printf(HELP_MSG);
         exit(-1);
     }
+    struct sigaction act;
+    memset(&act,0,sizeof(struct sigaction));
+    act.sa_handler = sigintHandler;
+
+    if (0 != sigaction(SIGINT, &act, NULL)){
+      printf(ERROR_MSG, 18, strerror(errno));
+        exit(-1);
+    };
     //open socket:
     listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     if( listen_fd < 0){
-        printf(ERROR_MSG, strerror(errno));
+        printf(ERROR_MSG,15, strerror(errno));
         exit(-1);
     }
     unsigned int port= atoi(argv[1]);
@@ -243,21 +289,24 @@ int main(int argc, char** argv) {
         exit(-1);
     }
     initLocks();
+    //
     while( !sigint_happend  ){
-        updateActiveThreads(1);
-        connect_fd = accept( listen_fd,(struct sockaddr*) &peer_addr,&addrsize);
+        int connect_fd = accept( listen_fd,(struct sockaddr*) &peer_addr,&addrsize);
+        //This might have changed in the meanwhile
         if( connect_fd < 0 ) {
-            printf(ERROR_MSG, strerror(errno));
+            if (sigint_happend){
+                return 0;
+            }
+            printf(ERROR_MSG,16, strerror(errno));
             exit(-1);
         }
-    }
+        updateActiveThreads(1);
+        pthread_t thread;
+        if (pthread_create(&(thread), &attr, (void *(*)(void *))&connectionMain, (void*) &connect_fd) != 0){
+            printf("error creating thread, error: %d\n", errno);
+            exit(-1);
+        }
 
-    cleanup();
-    //TODO: if sigint happend in the middle of accepting connection should accept it?
-    //TODO change threads SIGINT handler to none
-    //TODO write sigint handler for this
-    //TODO setsockopt with option SO_REUSEADDR
-    //TODO: each thread should ignore sigints, main thread should call specific function.
-    close(listen_fd);
+    }
     return 0;
 }

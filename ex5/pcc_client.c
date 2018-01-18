@@ -16,7 +16,7 @@
 #define ERROR_MSG "Error: %s\n"
 
 //#define INPUT_FILE "/dev/urandom"
-#define INPUT_FILE "/home/tami/src/ex5/pcc_client.c"
+#define INPUT_FILE "/home/tami/src/ex5/peter_pan.txt"
 #define TRUE 1
 #define FALSE 0
 #define BUFF_LEN 16384
@@ -43,12 +43,14 @@ int openConnection(char* host, char* port, int socket_fd){
     //possible ip, use the socket struct:
     if (is_ip){
         struct sockaddr_in addr;
-        int prt_num = atoi(port); //TODO check atoi
+        int prt_num = atoi(port);
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
         addr.sin_port = htons(prt_num);
-        addr.sin_addr.s_addr = inet_addr(host); // TODO: change to inet_aton
-        //todo check results if not set is_ip to false
+        if (inet_aton(host, &addr.sin_addr) == 0) {
+            printf(ERROR_MSG, strerror(errno));
+            exit(-1);
+        }
         ret = connect(socket_fd,(struct sockaddr*) &addr,sizeof(addr));
         //Maybe isn't ip after all:
         if (ret <0){
@@ -57,7 +59,6 @@ int openConnection(char* host, char* port, int socket_fd){
     }
     //wasn't an ip, try converting from host name:
     if (!is_ip){
-        //TODO: this in for?
         struct addrinfo hints;
         struct addrinfo *result;
         memset(&hints, 0, sizeof(struct addrinfo));
@@ -71,7 +72,6 @@ int openConnection(char* host, char* port, int socket_fd){
         PRINT_ERR(ret)
         freeaddrinfo(result);
     }
-    printf("connection opened\n");
     return 0;
 }
 
@@ -94,7 +94,6 @@ int sendData(int socket_fd,int N ){
         }
         ret =read(input_fd,buff,toRead);
         bytesRead = ret;
-
         while(bytesRead < toRead && ret >0){
             ret = read(input_fd, &(buff[bytesRead]), BUFF_LEN- bytesRead);
             bytesRead+=ret;
